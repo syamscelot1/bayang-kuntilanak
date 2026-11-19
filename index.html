@@ -8,7 +8,7 @@
   * { margin: 0; padding: 0; box-sizing: border-box; }
   html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: Georgia, 'Times New Roman', serif; }
   #wrap { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; }
-  canvas { display: block; background: #000; }
+  canvas { display: block; background: #000; width: 100vw; height: 100vh; }
   .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #e8dcc0; background: rgba(0,0,0,0.85); z-index: 10; padding: 20px; }
   .hidden { display: none !important; }
   h1 { font-size: 52px; letter-spacing: 4px; color: #d8b25c; text-shadow: 0 0 24px rgba(216,178,92,0.55), 0 2px 0 #000; margin-bottom: 8px; }
@@ -60,6 +60,7 @@
   #btnRun { right: 104px; bottom: 100px; }
   #btnAct { right: 24px; bottom: 88px; }
   #btnPause { top: 8px; right: 8px; width: 44px; height: 44px; bottom: auto; font-size: 18px; }
+  #btnFull { top: 8px; right: 60px; width: 44px; height: 44px; bottom: auto; font-size: 18px; }
   /* Overlay putar HP (portrait di HP) */
   #rotate { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #050403; color: #e8dcc0; padding: 24px; }
   #rotate .phone { font-size: 64px; margin-bottom: 18px; animation: tilt 1.6s ease-in-out infinite; }
@@ -70,6 +71,10 @@
      pointer-events none supaya tidak pernah menutupi tombol/menu. */
   #jumpscare { position: absolute; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: #000; pointer-events: none; }
   #jumpscare.on { display: flex; animation: scareShake 0.8s linear; }
+  /* jumpscare 3D: overlay transparan (wajah 3D dari canvas utama), wajah 2D
+     disembunyikan — kilat merah + getar tetap jalan */
+  #jumpscare.scare3d { background: transparent; }
+  #jumpscare.scare3d canvas { display: none; }
   #jumpscare canvas { height: 96%; max-width: 96vw; animation: scareZoom 0.8s ease-out; }
   #redflash { position: absolute; inset: 0; background: #c00; opacity: 0; pointer-events: none; }
   #jumpscare.on #redflash { animation: redFlash 0.8s steps(2) infinite; }
@@ -117,6 +122,7 @@
     <div class="tbtn" id="btnRun">LARI</div>
     <div class="tbtn" id="btnAct">AMBIL</div>
     <div class="tbtn" id="btnPause">II</div>
+    <div class="tbtn" id="btnFull">⛶</div>
   </div>
 
   <div id="rotate">
@@ -137,6 +143,7 @@
     <button class="btn" id="btnLoad">LOAD GAME</button>
     <button class="btn ghost" id="btnOptions">OPTIONS</button>
     <button class="btn ghost" id="btnHow">CARA MAIN</button>
+    <button class="btn ghost" id="btnFullMenu">⛶ FULLSCREEN</button>
     <p class="small" id="saveInfo">Belum ada save.</p>
     <div id="howto" class="howto hidden">
       <b>Gerak:</b> A/D atau panah kiri-kanan untuk jalan, W/S atau panah atas-bawah untuk maju/mundur ke dalam hutan. Di HP: joystick kiri bawah (mode landscape).<br>

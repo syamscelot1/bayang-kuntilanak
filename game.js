@@ -540,41 +540,75 @@
       batteryMeshes[b.id] = g;
     });
 
-    // ---- Dimas: anak kecil berkepala sedikit besar, jas hujan kuning
-    // berkerudung + lentera kecil di tangan kanan ----
+    // ---- Dimas: anak kecil berproporsi manusiawi, jas hujan kuning ----
+    // Kepala bulat + kerudung, jas hujan kerucut terpancung (lebar di bawah),
+    // lengan & kaki silinder meruncing dengan sendi bahu/pinggul/siku/lutut
+    // (pivot benar) + tangan dan sepatu. Tetap low-poly, tanpa aset luar.
     var YELLOW = 0xc9a227; // kuning redup ala Little Nightmares
+    var SKIN = 0xd8b89a;
     var dimas = new THREE.Group();
     var leanGroup = new THREE.Group();
     leanGroup.position.set(0, 0.24, 0);
     dimas.add(leanGroup);
-    function limb(parent, w, h, d, color, x, y, z) {
-      var pivot = new THREE.Group();
-      pivot.position.set(x, y, z);
-      var m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat(color));
-      m.position.y = -h / 2;
-      pivot.add(m);
-      parent.add(pivot);
-      return pivot;
+    function cyl(rt, rb, h, color, seg) {
+      return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 7), mat(color));
     }
-    // sepatu + kaki (di luar leanGroup: kaki tetap menapak)
-    box(0.09, 0.05, 0.17, 0x1a1a1a, -0.06, 0.025, 0.02, dimas);
-    box(0.09, 0.05, 0.17, 0x1a1a1a, 0.06, 0.025, 0.02, dimas);
-    var legL = limb(dimas, 0.09, 0.22, 0.11, 0x3a3f4a, -0.06, 0.24, 0);
-    var legR = limb(dimas, 0.09, 0.22, 0.11, 0x3a3f4a, 0.06, 0.24, 0);
-    // jas hujan: kerucut terbalik (bawah mengembang)
-    var coat = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.21, 0.42, 8), mat(YELLOW));
+    // kaki: pinggul -> paha -> lutut -> betis -> sepatu
+    function makeLeg(x) {
+      var hip = new THREE.Group();
+      hip.position.set(x, 0.26, 0);
+      var thigh = cyl(0.055, 0.045, 0.13, 0x3a3f4a);
+      thigh.position.y = -0.065;
+      hip.add(thigh);
+      var knee = new THREE.Group();
+      knee.position.y = -0.13;
+      hip.add(knee);
+      var shin = cyl(0.045, 0.035, 0.12, 0x3a3f4a);
+      shin.position.y = -0.06;
+      knee.add(shin);
+      box(0.09, 0.05, 0.17, 0x1a1a1a, 0, -0.125, 0.02, knee); // sepatu ikut betis
+      dimas.add(hip);
+      return { hip: hip, knee: knee };
+    }
+    var legL = makeLeg(-0.06), legR = makeLeg(0.06);
+    // jas hujan: kerucut terpancung + flare bawah + kerah
+    var coat = cyl(0.13, 0.21, 0.42, YELLOW, 8);
     coat.position.set(0, 0.20, 0);
     leanGroup.add(coat);
-    var armL = limb(leanGroup, 0.08, 0.28, 0.09, YELLOW, -0.16, 0.36, 0);
-    var armR = limb(leanGroup, 0.08, 0.28, 0.09, YELLOW, 0.16, 0.36, 0);
-    // kepala sedikit besar + kerudung kuning
+    var flare = cyl(0.21, 0.25, 0.08, YELLOW, 8);
+    flare.position.set(0, -0.02, 0);
+    leanGroup.add(flare);
+    var collar = cyl(0.10, 0.14, 0.08, YELLOW, 8);
+    collar.position.set(0, 0.42, 0);
+    leanGroup.add(collar);
+    // lengan: bahu -> lengan atas -> siku -> lengan bawah -> tangan
+    function makeArm(x) {
+      var shoulder = new THREE.Group();
+      shoulder.position.set(x, 0.36, 0);
+      var upper = cyl(0.04, 0.035, 0.15, YELLOW);
+      upper.position.y = -0.075;
+      shoulder.add(upper);
+      var elbow = new THREE.Group();
+      elbow.position.y = -0.15;
+      shoulder.add(elbow);
+      var fore = cyl(0.035, 0.03, 0.13, YELLOW);
+      fore.position.y = -0.065;
+      elbow.add(fore);
+      var hand = new THREE.Mesh(new THREE.SphereGeometry(0.035, 7, 6), mat(SKIN));
+      hand.position.y = -0.14;
+      elbow.add(hand);
+      leanGroup.add(shoulder);
+      return { shoulder: shoulder, elbow: elbow };
+    }
+    var armL = makeArm(-0.16), armR = makeArm(0.16);
+    // kepala bulat sedikit besar + kerudung kuning + wajah mengintip
     var headPivot = new THREE.Group();
     headPivot.position.set(0, 0.48, 0);
     leanGroup.add(headPivot);
-    var head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), mat(0xd8b89a));
+    var head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), mat(SKIN));
     head.position.set(0, 0.10, 0);
     headPivot.add(head);
-    var hood = new THREE.Mesh(new THREE.SphereGeometry(0.165, 10, 8), mat(YELLOW));
+    var hood = new THREE.Mesh(new THREE.SphereGeometry(0.165, 12, 10), mat(YELLOW));
     hood.position.set(0, 0.12, 0.02);
     hood.scale.set(1, 1.05, 1);
     headPivot.add(hood);
@@ -585,10 +619,14 @@
       eye.position.set(ex, 0.11, -0.135);
       headPivot.add(eye);
     });
-    // lentera kecil di tangan kanan (ikut berayun)
+    var mouth = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.008, 0.01),
+      new THREE.MeshBasicMaterial({ color: 0x5a3a30 }));
+    mouth.position.set(0, 0.04, -0.148);
+    headPivot.add(mouth);
+    // lentera kecil di tangan kanan (ujung lengan bawah, ikut berayun)
     var lanternGroup = new THREE.Group();
-    lanternGroup.position.set(0, -0.30, 0.03);
-    armR.add(lanternGroup);
+    lanternGroup.position.set(0, -0.17, 0.03);
+    armR.elbow.add(lanternGroup);
     var lframe = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.09, 0.07), mat(0x2a2018));
     lanternGroup.add(lframe);
     var lglow = new THREE.Mesh(new THREE.SphereGeometry(0.04, 8, 6),
@@ -596,7 +634,10 @@
     lanternGroup.add(lglow);
     scene.add(dimas);
 
-    // ---- Kuntilanak: siluet putih melayang, rambut hitam panjang menutupi wajah ----
+    // ---- Kuntilanak: siluet putih melayang, rambut hitam panjang ----
+    // Gaun kerucut mengalir (hem bawah bergoyang saat melayang), rambut
+    // helai-helai menutupi wajah (bergoyang pelan), lengan terulur ke depan
+    // saat mengejar. Tetap low-poly, tanpa aset luar.
     var kunti = new THREE.Group();
     var kuntiMats = [];
     function kmat(color) {
@@ -604,41 +645,53 @@
       kuntiMats.push(m);
       return m;
     }
-    // gaun putih menjuntai (tanpa kaki: melayang)
+    // gaun putih menjuntai (tanpa kaki: melayang) + hem bawah yang bergoyang
     var dress = new THREE.Mesh(new THREE.ConeGeometry(0.34, 1.5, 8), kmat(0xd8d8d0));
     dress.position.y = 0.75;
     kunti.add(dress);
+    var dressHem = new THREE.Mesh(new THREE.ConeGeometry(0.48, 0.35, 8), kmat(0xcfcfc8));
+    dressHem.position.y = 0.18;
+    kunti.add(dressHem);
     var torso = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.17, 0.5, 8), kmat(0xd8d8d0));
     torso.position.y = 1.55;
     kunti.add(torso);
-    // lengan panjang menjuntai
+    // lengan panjang meruncing + tangan pucat (terulur ke depan saat mengejar)
     function kArm(x) {
       var pivot = new THREE.Group();
       pivot.position.set(x, 1.72, 0);
-      var m = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.7, 0.06), kmat(0xd8d8d0));
+      var m = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.026, 0.7, 6), kmat(0xd8d8d0));
       m.position.y = -0.35;
       pivot.add(m);
+      var hand = new THREE.Mesh(new THREE.SphereGeometry(0.04, 7, 6), kmat(0xcfc4b8));
+      hand.position.y = -0.72;
+      pivot.add(hand);
       kunti.add(pivot);
       return pivot;
     }
     var kArmL = kArm(-0.2), kArmR = kArm(0.2);
     // kepala pucat + rambut hitam panjang menutupi wajah
-    var kHead = new THREE.Mesh(new THREE.SphereGeometry(0.15, 10, 8), kmat(0xcfc4b8));
+    var kHead = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), kmat(0xcfc4b8));
     kHead.position.y = 1.92;
     kunti.add(kHead);
-    var hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.17, 10, 8), kmat(0x050505));
-    hairBack.scale.set(1, 1.4, 1);
-    hairBack.position.set(0, 1.95, 0.04);
+    var hairBack = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 10), kmat(0x050505));
+    hairBack.scale.set(1, 1.6, 0.95);
+    hairBack.position.set(0, 1.95, 0.05);
     kunti.add(hairBack);
-    // tirai rambut di depan wajah (depan = -Z)
-    var hairFront = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.55, 0.05), kmat(0x050505));
-    hairFront.position.set(0, 1.85, -0.13);
-    kunti.add(hairFront);
-    // untaian rambut menjuntai sampai pinggang
-    [-0.11, 0.11].forEach(function (sx) {
-      var strand = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.75, 0.04), kmat(0x050505));
-      strand.position.set(sx, 1.45, -0.14);
+    // tirai rambut di depan wajah: helai-helai meruncing (bergoyang pelan)
+    var hairStrands = [];
+    for (var hs = 0; hs < 4; hs++) {
+      var strand = new THREE.Mesh(new THREE.CylinderGeometry(0.028, 0.012, 0.6, 5), kmat(0x050505));
+      strand.position.set(-0.12 + hs * 0.08, 1.72, -0.14);
+      strand.rotation.z = (hs - 1.5) * 0.06;
       kunti.add(strand);
+      hairStrands.push(strand);
+    }
+    // untaian rambut menjuntai sampai pinggang di sisi wajah
+    [-0.13, 0.13].forEach(function (sx) {
+      var strand2 = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.014, 0.75, 5), kmat(0x050505));
+      strand2.position.set(sx, 1.45, -0.13);
+      kunti.add(strand2);
+      hairStrands.push(strand2);
     });
     // mata merah samar di balik rambut
     [-0.05, 0.05].forEach(function (ex) {
@@ -649,13 +702,101 @@
     });
     scene.add(kunti);
 
+    // ---- Scene jumpscare 3D: close-up kepala Kuntilanak menerjang kamera ----
+    // Dipakai saat jumpscare (bukan gambar 2D datar): wajah 3D yang sama
+    // dengan di dunia, diterangi SpotLight merah dari bawah, rambut
+    // beterbangan, mata menyala membesar. Canvas 2D lama tetap dipakai
+    // sebagai fallback kalau WebGL tidak tersedia.
+    var scareScene = new THREE.Scene();
+    scareScene.background = new THREE.Color(0x000000);
+    var scareCamera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 50);
+    scareCamera.position.set(0, 0, 0);
+    scareCamera.lookAt(0, 0.2, -1);
+    var scareLight = new THREE.SpotLight(0xff2211, 3.5, 20, 0.9, 0.5, 1.0);
+    scareLight.position.set(0, -2, -2);
+    scareScene.add(scareLight);
+    scareScene.add(scareLight.target);
+    scareLight.target.position.set(0, 0.5, -4);
+    var scareAmbient = new THREE.AmbientLight(0x301010, 0.7);
+    scareScene.add(scareAmbient);
+    var scareHead = new THREE.Group();
+    var sFace = new THREE.Mesh(new THREE.SphereGeometry(1, 12, 10),
+      new THREE.MeshLambertMaterial({ color: 0xd8cfc0 }));
+    sFace.scale.set(0.9, 1.25, 0.7);
+    scareHead.add(sFace);
+    var sHair = new THREE.Mesh(new THREE.SphereGeometry(1.15, 12, 10),
+      new THREE.MeshLambertMaterial({ color: 0x050505 }));
+    sHair.scale.set(1, 1.5, 0.9);
+    sHair.position.set(0, 0.3, 0.25);
+    scareHead.add(sHair);
+    var scareStrands = [];
+    for (var ss = 0; ss < 5; ss++) {
+      var sst = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.6, 0.06),
+        new THREE.MeshLambertMaterial({ color: 0x050505 }));
+      sst.position.set(-0.7 + ss * 0.35, 0.5, -0.62);
+      sst.rotation.z = (ss - 2) * 0.08;
+      scareHead.add(sst);
+      scareStrands.push(sst);
+    }
+    [-0.35, 0.35].forEach(function (ex) {
+      var sock = new THREE.Mesh(new THREE.SphereGeometry(0.22, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0x000000 }));
+      sock.scale.set(1, 1.3, 0.4);
+      sock.position.set(ex, 0.35, -0.62);
+      scareHead.add(sock);
+      var sEye = new THREE.Mesh(new THREE.SphereGeometry(0.13, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff2211 }));
+      sEye.position.set(ex, 0.35, -0.72);
+      scareHead.add(sEye);
+      var sGlow = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 6),
+        new THREE.MeshBasicMaterial({ color: 0xff2211, transparent: true, opacity: 0.35 }));
+      sGlow.position.set(ex, 0.35, -0.7);
+      scareHead.add(sGlow);
+    });
+    var sMouth = new THREE.Mesh(new THREE.SphereGeometry(0.32, 10, 8),
+      new THREE.MeshBasicMaterial({ color: 0x000000 }));
+    sMouth.scale.set(0.8, 1.4, 0.35);
+    sMouth.position.set(0, -0.75, -0.55);
+    scareHead.add(sMouth);
+    for (var ti = -1; ti <= 1; ti++) {
+      var tooth = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.12, 0.05),
+        new THREE.MeshBasicMaterial({ color: 0xe8e0cc }));
+      tooth.position.set(ti * 0.18, -0.32, -0.62);
+      scareHead.add(tooth);
+    }
+    scareHead.position.set(0, 0.2, -7);
+    scareScene.add(scareHead);
+    // progress 0..1 selama 0,8 detik: kepala menerjang dari jauh ke kamera
+    function updateScare(progress, time) {
+      var p = Math.max(0, Math.min(1, progress));
+      var ease = 1 - Math.pow(1 - p, 3);
+      var shake = p * 0.25;
+      scareHead.position.set(
+        (Math.random() - 0.5) * shake + Math.sin(time * 40) * 0.05 * p,
+        0.2 + Math.sin(time * 3) * 0.05 + (Math.random() - 0.5) * shake,
+        -7 + ease * 5.6);
+      scareHead.rotation.z = Math.sin(time * 25) * 0.12 * p + (Math.random() - 0.5) * 0.1 * p;
+      scareHead.rotation.x = -0.08 + Math.sin(time * 17) * 0.05 * p;
+      for (var i = 0; i < scareStrands.length; i++) {
+        scareStrands[i].rotation.x = Math.sin(time * 30 + i * 1.7) * 0.5 * p;
+      }
+      scareLight.intensity = 3 + Math.sin(time * 30) * 1.5 * p + p * 2;
+      scareCamera.position.set((Math.random() - 0.5) * 0.15 * p, (Math.random() - 0.5) * 0.1 * p, 0);
+      scareCamera.lookAt(0, 0.2, -1);
+    }
+
     return {
       scene: scene, camera: camera, lantern: lantern, candleLight: candleLight,
       moonLight: moonLight,
       dimas: dimas, leanGroup: leanGroup, coat: coat,
-      legL: legL, legR: legR, armL: armL, armR: armR,
+      legL: legL.hip, legR: legR.hip, kneeL: legL.knee, kneeR: legR.knee,
+      armL: armL.shoulder, armR: armR.shoulder,
+      elbowL: armL.elbow, elbowR: armR.elbow,
       headPivot: headPivot, lanternGroup: lanternGroup,
       kunti: kunti, kArmL: kArmL, kArmR: kArmR, kuntiMats: kuntiMats,
+      dressHem: dressHem, hairStrands: hairStrands,
+      scareScene: scareScene, scareCamera: scareCamera,
+      scareHead: scareHead, scareLight: scareLight, updateScare: updateScare,
       itemMeshes: itemMeshes, batteryMeshes: batteryMeshes,
       candleMeshes: candleMeshes, hideMeshes: hideMeshes,
       hideRims: hideRims, swayLeaves: swayLeaves,
@@ -665,7 +806,9 @@
       dust: dust, burst: burst, spawnBurst: spawnBurst, spawnInto: spawnInto, updatePool: updatePool,
       fogPlanes: fogPlanes, glowDisc: glowDisc,
       parallax: parallax, moon: moon, halo: halo, stars: stars,
-      camX: -18, walkPhase: 0, reachT: 0, prevStepSin: 0, onStep: null
+      camX: -18, camZ: 11, walkPhase: 0, reachT: 0, prevStepSin: 0, onStep: null,
+      scaredLevel: 0, prevSuspicion: 0, flinchT: 0, cowerT: 0, pose: 'normal',
+      kuntiTilt: 0, prevKunYaw: 0
     };
   }
 
@@ -685,7 +828,13 @@
     var chasing = !!g.chaseWarn;
     var swayY = running ? Math.sin(time * 9) * 0.06 : Math.sin(time * 1.2) * 0.015;
     var swayX = running ? Math.sin(time * 9) * 0.08 : 0;
-    w.camera.position.set(w.camX + swayX, 2.1 + swayY, 11);
+    // Jarak kamera menyesuaikan aspek rasio viewport supaya area main
+    // tetap terlihat penuh di layar tinggi/sempit (HP portrait) maupun
+    // lebar: di layar sempit kamera menjauh agar pemain tidak keluar layar.
+    var aspect = window.innerWidth / Math.max(1, window.innerHeight);
+    var camZ = aspect >= 1.6 ? 11 : 11 * 1.6 / aspect;
+    w.camZ = camZ;
+    w.camera.position.set(w.camX + swayX, 2.1 + swayY, camZ);
     w.camera.lookAt(w.camX + swayX, 1.0, 0);
 
     // Parallax: lapisan siluet bambu latar bergerak lebih lambat dari kamera.
@@ -699,7 +848,29 @@
       fp.mesh.position.x = w.camX * fp.k + Math.sin(time * 0.05 + fp.phase) * 3;
     });
 
-    // ---- Dimas: animasi jalan/lari/diam/sembunyi/meraih/mendorong ----
+    // ---- Dimas: animasi jalan/lari/diam/sembunyi/meraih/mendorong/takut ----
+    // Sumber rasa takut: suspicion (jeda curiga 0..1), chaseWarn, dan jarak
+    // musuh. scaredLevel dihaluskan (masuk cepat, keluar pelan) supaya
+    // transisi pose tidak patah. Pose: normal | startled | panicked | wary.
+    var kd = Math.sqrt(Math.pow(e.x - p.x, 2) + Math.pow(e.z - p.z, 2));
+    var susp = g.suspicion || 0;
+    var waryNear = !p.hidden && !chasing && kd < 4;
+    var scaredTarget = 0;
+    if (susp > 0) scaredTarget = 0.6 + 0.4 * susp;
+    else if (chasing) scaredTarget = 1;
+    else if (waryNear) scaredTarget = 0.45;
+    var sRate = scaredTarget > w.scaredLevel ? 10 : 2.5;
+    w.scaredLevel += (scaredTarget - w.scaredLevel) * Math.min(1, dt * sRate);
+    w.scaredLevel = Math.max(0, Math.min(1, w.scaredLevel));
+    // flinch: sentakan saat pertama kali terlihat (mundur selangkah +
+    // lengan melindungi wajah). Dicatat dulu, diterapkan di bawah.
+    var flinching = false;
+    if (susp > 0 && (w.prevSuspicion || 0) === 0) { w.flinchT = 0.35; flinching = true; }
+    else if (w.flinchT > 0) flinching = true;
+    w.prevSuspicion = susp;
+    var cowering = w.cowerT > 0; // meringkuk sesaat setelah tertangkap
+    var sl = w.scaredLevel;
+    w.pose = susp > 0 ? 'startled' : (chasing ? 'panicked' : (waryNear ? 'wary' : 'normal'));
     // Saat bersembunyi: merunduk/merangkak masuk ke lubang terdekat.
     if (p.hidden) {
       var hs = null; var hd = 99;
@@ -711,6 +882,19 @@
       else w.dimas.position.set(p.x, 0, p.z);
     } else {
       w.dimas.position.set(p.x, 0, p.z);
+    }
+    // sentakan mundur selangkah saat terkejut
+    if (flinching) {
+      var back = 0.12 * Math.max(0, w.flinchT) / 0.35;
+      w.dimas.position.x += Math.sin(p.yaw) * back;
+      w.dimas.position.z += Math.cos(p.yaw) * back;
+    }
+    // gemetar halus selama ketakutan
+    if (sl > 0.3) {
+      w.dimas.position.x += Math.sin(time * 31) * 0.006 * sl;
+      w.dimas.rotation.z = Math.sin(time * 27) * 0.02 * sl;
+    } else {
+      w.dimas.rotation.z = 0;
     }
     // tepi cahaya redup tempat sembunyi berdenyut pelan (menarik mata pemain)
     for (var ri = 0; ri < w.hideRims.length; ri++) {
@@ -730,67 +914,147 @@
     }
     w.prevStepSin = curSin;
     var sw = moving ? Math.sin(w.walkPhase) : 0;
-    // kaki: ayunan langkah kecil-kecil
-    w.legL.rotation.x = sw * (running ? 0.8 : 0.55);
-    w.legR.rotation.x = -sw * (running ? 0.8 : 0.55);
-    // lengan
-    if (g.pushing) {
+    // kaki: paha mengayun, lutut menekuk saat kaki melangkah ke depan
+    var amp = running ? 0.85 : 0.55;
+    if (p.hidden) {
+      // jongkok dalam: paha ke depan, lutut menekuk dalam
+      w.legL.rotation.x = 1.15; w.legR.rotation.x = 1.15;
+      w.kneeL.rotation.x = -1.7; w.kneeR.rotation.x = -1.7;
+    } else if (cowering) {
+      w.legL.rotation.x = 0.5; w.legR.rotation.x = 0.5;
+      w.kneeL.rotation.x = -0.9; w.kneeR.rotation.x = -0.9;
+    } else if (moving) {
+      w.legL.rotation.x = sw * amp;
+      w.legR.rotation.x = -sw * amp;
+      var kb = running ? 1.1 : 0.9;
+      w.kneeL.rotation.x = -Math.max(0, sw) * kb;
+      w.kneeR.rotation.x = -Math.max(0, -sw) * kb;
+    } else {
+      w.legL.rotation.x = 0; w.legR.rotation.x = 0;
+      w.kneeL.rotation.x = 0; w.kneeR.rotation.x = 0;
+    }
+    // lengan: mengayun BERLAWANAN dengan kaki, siku sedikit menekuk
+    if (cowering) {
+      // tangan menutupi wajah, badan meringkuk
+      w.armL.rotation.x = 1.9; w.armR.rotation.x = 1.9;
+      w.armL.rotation.z = 0.5; w.armR.rotation.z = -0.5;
+      w.elbowL.rotation.x = 0.9; w.elbowR.rotation.x = 0.9;
+    } else if (flinching || (sl > 0.5 && susp > 0)) {
+      // terkejut: lengan terangkat melindungi wajah/dada, bahu terangkat
+      w.armL.rotation.x = 1.5; w.armR.rotation.x = 1.5;
+      w.armL.rotation.z = 0.45; w.armR.rotation.z = -0.45;
+      w.elbowL.rotation.x = 0.7; w.elbowR.rotation.x = 0.7;
+    } else if (g.pushing) {
       // mendorong peti: kedua lengan ke depan, badan condong
       w.armL.rotation.x = 1.2; w.armR.rotation.x = 1.2;
       w.armL.rotation.z = 0; w.armR.rotation.z = 0;
+      w.elbowL.rotation.x = 0.1; w.elbowR.rotation.x = 0.1;
     } else if (running) {
-      // lari: lengan sedikit terangkat ke samping (panik)
+      // lari panik: ayunan liar, lengan terangkat ke samping, siku menekuk
       w.armL.rotation.x = -sw * 0.3; w.armR.rotation.x = sw * 0.3;
-      w.armL.rotation.z = 0.55; w.armR.rotation.z = -0.55;
+      w.armL.rotation.z = chasing ? 0.8 : 0.55; w.armR.rotation.z = chasing ? -0.8 : -0.55;
+      w.elbowL.rotation.x = 0.9; w.elbowR.rotation.x = 0.9;
     } else if (moving) {
       w.armL.rotation.x = -sw * 0.45; w.armR.rotation.x = sw * 0.45;
       w.armL.rotation.z = 0.08; w.armR.rotation.z = -0.08;
+      w.elbowL.rotation.x = 0.3 + Math.max(0, -sw) * 0.15;
+      w.elbowR.rotation.x = 0.3 + Math.max(0, sw) * 0.15;
     } else {
       w.armL.rotation.x = 0; w.armR.rotation.x = 0;
       w.armL.rotation.z = 0.08; w.armR.rotation.z = -0.08;
+      w.elbowL.rotation.x = 0.2; w.elbowR.rotation.x = 0.2;
     }
     // meraih/mengangkat tangan saat mengambil barang (0,6 detik)
     if (w.reachT > 0) {
       w.reachT -= dt;
       var rt = 1 - Math.max(0, w.reachT) / 0.6;
       w.armR.rotation.x = Math.sin(rt * Math.PI) * 2.2;
+      w.elbowR.rotation.x = 0.05;
     }
     // badan condong ke depan saat lari / mendorong; merunduk saat sembunyi
+    // atau meringkuk; membungkuk saat waspada
     var lean = 0;
-    if (p.hidden) lean = -0.25;
+    if (cowering) lean = -0.5;
+    else if (p.hidden) lean = -0.25;
     else if (g.pushing) lean = -0.15;
-    else if (running) lean = chasing ? -0.26 : -0.18;
+    else if (running) lean = chasing ? -0.3 : -0.18;
     else if (moving) lean = -0.06;
+    else if (waryNear) lean = -0.12;
     w.leanGroup.rotation.x += (lean - w.leanGroup.rotation.x) * Math.min(1, dt * 8);
     // badan naik-turun pelan (bob) saat berjalan
     var bob = moving ? Math.abs(Math.sin(w.walkPhase)) * (running ? 0.06 : 0.035) : 0;
     w.dimas.position.y = p.hidden ? 0 : bob;
-    // napas naik-turun saat diam
+    // napas naik-turun saat diam (cepat saat waspada)
     if (!moving && !p.hidden) {
-      var br = 1 + Math.sin(time * 1.5) * 0.015;
+      var brRate = waryNear ? 6 : 1.5;
+      var brAmp = waryNear ? 0.03 : 0.015;
+      var br = 1 + Math.sin(time * brRate) * brAmp;
       w.coat.scale.set(1, br, 1);
     } else {
       w.coat.scale.set(1, 1, 1);
     }
-    // kepala: menoleh sesekali saat diam; melirik ke belakang saat dikejar
+    // kepala: menoleh cepat ke arah Kuntilanak saat takut; melirik ke
+    // belakang saat dikejar; menoleh sesekali saat diam
     var headTarget = 0;
-    if (chasing && moving) headTarget = Math.sin(time * 2.2) * 0.9;
-    else if (!moving && !p.hidden) headTarget = Math.sin(time * 0.4) * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11));
+    if (cowering) {
+      w.headPivot.rotation.x = 0.45; // kepala menunduk
+    } else {
+      w.headPivot.rotation.x = 0;
+      if (sl > 0.3) {
+        var angToE = Math.atan2(-(e.x - p.x), -(e.z - p.z));
+        var rel = angToE - p.yaw;
+        while (rel > Math.PI) rel -= Math.PI * 2;
+        while (rel < -Math.PI) rel += Math.PI * 2;
+        headTarget = Math.max(-1.2, Math.min(1.2, rel)) * Math.min(1, sl);
+      } else if (chasing && moving) {
+        headTarget = Math.sin(time * 2.2) * 0.9;
+      } else if (!moving && !p.hidden) {
+        headTarget = Math.sin(time * 0.4) * 0.5 * (0.5 + 0.5 * Math.sin(time * 0.11));
+      }
+    }
     w.headPivot.rotation.y += (headTarget - w.headPivot.rotation.y) * Math.min(1, dt * 5);
+    w.headPivot.rotation.z = sl * 0.12; // kepala sedikit miring saat takut
     // lentera di tangan ikut berayun saat berjalan
     w.lanternGroup.rotation.x = moving ? Math.sin(w.walkPhase) * 0.4 : Math.sin(time * 1.2) * 0.06;
-    // sembunyi: jongkok/merunduk di rumpun bambu (tetap terlihat, merunduk)
-    w.dimas.scale.y = p.hidden ? 0.6 : 1;
+    // sembunyi: jongkok/merunduk (tetap terlihat, merunduk); meringkuk: mengecil
+    w.dimas.scale.y = p.hidden ? 0.6 : (cowering ? 0.8 : 1);
     w.dimas.visible = true;
+    // timer pose takut berkurang setelah diterapkan (pose bertahan 1 frame)
+    if (w.flinchT > 0) w.flinchT -= dt;
+    if (w.cowerT > 0) w.cowerT -= dt;
 
     // ---- Kuntilanak: melayang + muncul perlahan dari kabut ----
     w.kunti.position.set(e.x, 0.32 + Math.sin(time * 1.8) * 0.12, e.z);
     w.kunti.rotation.y = e.yaw;
     w.kunti.rotation.x = chasing ? 0.14 : 0.05;
-    w.kArmL.rotation.x = 0.25 + Math.sin(time * 1.8) * 0.12;
-    w.kArmR.rotation.x = 0.25 + Math.sin(time * 1.8 + 1) * 0.12;
+    // miring sedikit saat berbelok (dari perubahan yaw)
+    var yawRate = 0;
+    if (dt > 0) {
+      var yd = e.yaw - w.prevKunYaw;
+      while (yd > Math.PI) yd -= Math.PI * 2;
+      while (yd < -Math.PI) yd += Math.PI * 2;
+      yawRate = yd / dt;
+    }
+    w.prevKunYaw = e.yaw;
+    var tiltTarget = Math.max(-0.18, Math.min(0.18, -yawRate * 0.05));
+    w.kuntiTilt += (tiltTarget - w.kuntiTilt) * Math.min(1, dt * 6);
+    w.kunti.rotation.z = w.kuntiTilt;
+    // lengan terulur ke depan saat mengejar, menjuntai saat patroli
+    var kReach = chasing ? 1.3 : 0.25;
+    w.kArmL.rotation.x = kReach + Math.sin(time * 1.8) * 0.12;
+    w.kArmR.rotation.x = kReach + Math.sin(time * 1.8 + 1) * 0.12;
+    w.kArmL.rotation.z = chasing ? 0.18 : 0;
+    w.kArmR.rotation.z = chasing ? -0.18 : 0;
+    // hem gaun bergoyang saat melayang + rambut helai-helai bergoyang pelan
+    if (w.dressHem) {
+      w.dressHem.rotation.z = Math.sin(time * 1.8) * 0.1;
+      w.dressHem.rotation.x = Math.sin(time * 1.3) * 0.05;
+    }
+    for (var hi = 0; hi < w.hairStrands.length; hi++) {
+      w.hairStrands[hi].rotation.x = 0.06 + Math.sin(time * 2.2 + hi * 1.3) * 0.12;
+      w.hairStrands[hi].rotation.z = Math.sin(time * 1.7 + hi) * 0.06;
+    }
     // makin dekat makin jelas; jauh = samar di kabut
-    var kd = Math.sqrt(Math.pow(e.x - p.x, 2) + Math.pow(e.z - p.z, 2));
     var kop = Math.max(0.3, Math.min(1, 1.3 - kd / 11));
     w.kuntiMats.forEach(function (m) { m.opacity = kop; });
 
@@ -1204,6 +1468,43 @@
         sg.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
         s.connect(sg); sg.connect(this.sfxBus);
         s.start(t); s.stop(t + 0.72);
+        // jeritan kedua lebih tinggi + dentuman rendah (lebih mirip jeritan)
+        var s2 = ctx.createOscillator(), sg2 = ctx.createGain();
+        s2.type = 'sawtooth';
+        s2.frequency.setValueAtTime(1800, t + 0.05);
+        s2.frequency.exponentialRampToValueAtTime(400, t + 0.6);
+        sg2.gain.setValueAtTime(0.0001, t + 0.05);
+        sg2.gain.exponentialRampToValueAtTime(0.18, t + 0.08);
+        sg2.gain.exponentialRampToValueAtTime(0.0001, t + 0.65);
+        s2.connect(sg2); sg2.connect(this.sfxBus);
+        s2.start(t + 0.05); s2.stop(t + 0.68);
+        var boom = ctx.createOscillator(), bg = ctx.createGain();
+        boom.type = 'sine';
+        boom.frequency.setValueAtTime(90, t);
+        boom.frequency.exponentialRampToValueAtTime(35, t + 0.3);
+        bg.gain.setValueAtTime(0.0001, t);
+        bg.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
+        bg.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+        boom.connect(bg); bg.connect(this.sfxBus);
+        boom.start(t); boom.stop(t + 0.4);
+      } catch (e) { /* abaikan */ }
+    },
+    tension: function (level) {
+      // bunyi tegang naik selama jeda curiga — nada makin tinggi seiring
+      // suspicion (level 0..1). Dipanggil berkala dari loop utama.
+      try {
+        if (!this.ctx) return;
+        var ctx = this.ctx, t = ctx.currentTime;
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sawtooth';
+        var f = 160 + level * 320;
+        o.frequency.setValueAtTime(f, t);
+        o.frequency.exponentialRampToValueAtTime(f * 1.35, t + 0.3);
+        g.gain.setValueAtTime(0.0001, t);
+        g.gain.exponentialRampToValueAtTime(0.05 + level * 0.08, t + 0.05);
+        g.gain.exponentialRampToValueAtTime(0.0001, t + 0.32);
+        o.connect(g); g.connect(this.sfxBus);
+        o.start(t); o.stop(t + 0.35);
       } catch (e) { /* abaikan */ }
     },
     winJingle: function () {
@@ -1343,14 +1644,31 @@
     var SCARE_MS = 800, SCARE_COOLDOWN_MS = 3000;
     var lastScare = 0, scareUntil = 0, scareTimer = null;
     function hideScare() {
-      if (els.jumpscare) els.jumpscare.classList.remove('on');
+      if (els.jumpscare) {
+        els.jumpscare.classList.remove('on');
+        els.jumpscare.classList.remove('scare3d');
+      }
+      // sepersekian detik "freeze" gelap di akhir sebelum kembali ke game
+      if (els.fade) {
+        els.fade.style.opacity = '1';
+        setTimeout(function () {
+          if (els.fade && game.state !== 'gameover') els.fade.style.opacity = '0';
+        }, 130);
+      }
     }
     function triggerJumpscare() {
       var now = Date.now();
       if (now - lastScare < SCARE_COOLDOWN_MS) return false;
       lastScare = now;
       scareUntil = now + SCARE_MS;
-      if (els.jumpscare) els.jumpscare.classList.add('on');
+      // Jumpscare 3D: wajah Kuntilanak 3D menerjang kamera (rendered di loop
+      // utama). Overlay 2D tetap dipakai untuk kilat merah + getar, tapi
+      // wajah 2D-nya disembunyikan (kelas scare3d). Tanpa WebGL, wajah 2D
+      // prosedural tetap jadi fallback.
+      if (els.jumpscare) {
+        els.jumpscare.classList.add('on');
+        if (renderer && world && world.scareScene) els.jumpscare.classList.add('scare3d');
+      }
       try { AudioSys.ensure(); AudioSys.sting(); } catch (e) { /* abaikan */ }
       if (scareTimer) clearTimeout(scareTimer);
       scareTimer = setTimeout(hideScare, SCARE_MS);
@@ -1375,16 +1693,48 @@
       }
     }
 
+    // ---- Fullscreen: canvas memenuhi seluruh viewport (tanpa letterbox) ----
+    // Masuk/keluar fullscreen (tahan error kalau browser menolak — game
+    // tetap jalan). Prefix webkit/moz/ms untuk browser lama.
+    function toggleFullscreen() {
+      try {
+        if (document.fullscreenElement || document.webkitFullscreenElement) {
+          if (document.exitFullscreen) document.exitFullscreen();
+          else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+        } else {
+          var el = document.documentElement;
+          if (el.requestFullscreen) el.requestFullscreen().catch(function () { /* abaikan */ });
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+          else if (el.mozRequestFullScreen) el.mozRequestFullScreen();
+          else if (el.msRequestFullscreen) el.msRequestFullscreen();
+        }
+      } catch (e) { /* abaikan: fullscreen opsional */ }
+    }
+    function enterFullscreenQuiet() {
+      try {
+        if (!document.fullscreenElement && !document.webkitFullscreenElement) {
+          var el = document.documentElement;
+          if (el.requestFullscreen) el.requestFullscreen().catch(function () { /* abaikan */ });
+          else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+        }
+      } catch (e) { /* abaikan */ }
+    }
+
     function resize() {
       if (typeof window === 'undefined') return;
+      // Tanpa letterbox: canvas mengisi penuh viewport (100vw x 100vh),
+      // aspect kamera mengikuti rasio layar. syncWorld menyesuaikan
+      // world.camZ supaya area main tetap terlihat di rasio apa pun.
       var vw = window.innerWidth, vh = window.innerHeight;
-      var scale = Math.min(vw / 1280, vh / 720);
-      canvas.style.width = Math.floor(1280 * scale) + 'px';
-      canvas.style.height = Math.floor(720 * scale) + 'px';
-      if (renderer) {
-        renderer.setSize(1280, 720, false);
-        world.camera.aspect = 1280 / 720;
-        world.camera.updateProjectionMatrix();
+      canvas.style.width = vw + 'px';
+      canvas.style.height = vh + 'px';
+      if (renderer) renderer.setSize(vw, vh, false);
+      // aspek kamera mengikuti viewport meski renderer gagal (tanpa WebGL)
+      world.camera.aspect = vw / Math.max(1, vh);
+      world.camera.updateProjectionMatrix();
+      if (world.scareCamera) {
+        world.scareCamera.aspect = vw / Math.max(1, vh);
+        world.scareCamera.updateProjectionMatrix();
       }
       checkOrientation();
     }
@@ -1437,6 +1787,7 @@
     }
     function startNewGame() {
       lsRemove(SAVE_KEY); // save lama ditimpa (sudah dikonfirmasi)
+      if (isTouch) enterFullscreenQuiet(); // auto-fullscreen dari tap NEW GAME
       if (els.fade) els.fade.style.opacity = '0';
       game.start();
       hideMenus();
@@ -1453,7 +1804,17 @@
         'Melati ' + (game.items.melati ? '☑' : '☐') + ' &nbsp;Kemenyan ' + (game.items.kemenyan ? '☑' : '☐') +
         ' &nbsp;Lampion ' + (game.items.lampion ? '☑' : '☐');
       els.timer.textContent = fmtTime(game.time);
-      els.warn.classList.toggle('hidden', !game.chaseWarn || game.state !== 'playing');
+      // peringatan: "SEMBUNYI!" selama jeda curiga, "LARI!" saat dikejar
+      var susp = game.suspicion || 0;
+      if (game.state === 'playing' && susp > 0 && !game.chaseWarn) {
+        els.warn.textContent = 'DIA MELIHATMU — SEMBUNYI!';
+        els.warn.classList.remove('hidden');
+      } else if (game.state === 'playing' && game.chaseWarn) {
+        els.warn.textContent = 'DIA MELIHATMU — LARI!';
+        els.warn.classList.remove('hidden');
+      } else {
+        els.warn.classList.add('hidden');
+      }
       var near = game.state === 'playing' ? game.nearestInteractable() : null;
       if (near) {
         els.msg.textContent = near.label;
@@ -1480,7 +1841,7 @@
       else if (type === 'candle') AudioSys.blip();
       else if (type === 'locked' || type === 'toohigh') AudioSys.blip();
       else if (type === 'chase') AudioSys.giggle();
-      else if (type === 'caught') triggerJumpscare();
+      else if (type === 'caught') { world.cowerT = 1.6; triggerJumpscare(); }
       else if (type === 'final') {
         game.placeEnemyAhead(2.2);
         AudioSys.giggle();
@@ -1600,6 +1961,7 @@
       if (game.state === 'playing') { game.pause(); showPause(); }
       else if (game.state === 'paused') { game.resume(); hideMenus(); }
     });
+    bindBtn('btnFull', function () { toggleFullscreen(); });
 
     // ---- Tombol menu ----
     function bindClick(id, fn) {
@@ -1622,6 +1984,7 @@
       } else { showMenu('menu'); refreshMenuButtons(); }
     });
     bindClick('btnOptions', function () { openOptions('menu'); });
+    bindClick('btnFullMenu', function () { toggleFullscreen(); });
     bindClick('btnOptionsPause', function () { openOptions('pauseMenu'); });
     bindClick('btnOptionsBack', function () { showMenu(optionsReturn); });
     bindClick('optMusic0', function () { setMusic(0); });
@@ -1648,7 +2011,7 @@
 
     // ---- Loop utama ----
     var last = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
-    var lastThump = 0, lastBonang = 0, lastGiggle = 0;
+    var lastThump = 0, lastBonang = 0, lastGiggle = 0, lastTension = 0;
     var overShown = false;
     function loop(now) {
       var dt = Math.min(0.05, (now - last) / 1000 || 0.016);
@@ -1669,14 +2032,27 @@
       // render saat bermain DAN di menu utama (latar menu: hutan hidup)
       if (game.state === 'playing' || game.state === 'menu') {
         syncWorld(world, game, dt, now / 1000);
-        // getar layar halus saat jumpscare aktif
-        if (scareActive() && renderer) {
-          world.camera.position.x += (Math.random() - 0.5) * 0.18;
-          world.camera.position.y += (Math.random() - 0.5) * 0.12;
+        if (renderer) {
+          if (scareActive() && world.scareScene) {
+            // jumpscare 3D: kepala Kuntilanak menerjang kamera (0,8 detik)
+            var sp = (Date.now() - (scareUntil - SCARE_MS)) / SCARE_MS;
+            world.updateScare(sp, now / 1000);
+            renderer.render(world.scareScene, world.scareCamera);
+          } else {
+            // getar layar saat jumpscare 2D (fallback) aktif
+            if (scareActive()) {
+              world.camera.position.x += (Math.random() - 0.5) * 0.18;
+              world.camera.position.y += (Math.random() - 0.5) * 0.12;
+            }
+            renderer.render(world.scene, world.camera);
+          }
         }
-        if (renderer) renderer.render(world.scene, world.camera);
       }
       if (game.state === 'playing') {
+        // bunyi tegang naik selama jeda curiga (sebelum mengejar)
+        if (game.suspicion > 0 && !game.chaseWarn && now - lastTension > 350) {
+          lastTension = now; AudioSys.tension(game.suspicion);
+        }
         // denting gamelan pelan sesekali
         if (now - lastBonang > 4500) { lastBonang = now; AudioSys.bonang(); }
         // cekikikan saat dikejar (berkala)
@@ -1707,6 +2083,7 @@
       buildWorld: buildWorld, syncWorld: syncWorld,
       countTriangles: countTriangles, drawScareFace: drawScareFace,
       triggerJumpscare: triggerJumpscare, scareActive: scareActive,
+      toggleFullscreen: toggleFullscreen, resize: resize,
       checkOrientation: checkOrientation, fmtTime: fmtTime,
       settings: settings, AudioSys: AudioSys,
       loadSettings: loadSettings, saveSettings: saveSettings,

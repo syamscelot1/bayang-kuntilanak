@@ -103,9 +103,13 @@
   var EXIT = { x: -28.5 }; // gerbang desa (barat)
   var PLAYER_R = 0.35;
   var WALK_SPEED = 3.0, RUN_SPEED = 5.2;
-  var ENEMY_PATROL = 1.6, ENEMY_CHASE = 3.7, ENEMY_HUNT = 4.8;
-  var VISION_RANGE = 9, VISION_RANGE_LIT = 10.5, VISION_HALF_ANGLE = 1.3;
-  var HEAR_RANGE = 11, CATCH_DIST = 0.8, INTERACT_DIST = 1.9;
+  var ENEMY_PATROL = 1.6, ENEMY_CHASE = 3.2, ENEMY_HUNT = 4.2;
+  var VISION_RANGE = 6, VISION_RANGE_LIT = 7.5, VISION_HALF_ANGLE = 0.9;
+  var HEAR_RANGE = 8, CATCH_DIST = 0.8, INTERACT_DIST = 1.9;
+  // Jeda curiga: musuh harus melihat pemain terus-menerus selama ini
+  // sebelum mengejar. LOST_TIME: seberapa cepat musuh menyerah saat
+  // kehilangan jejak pemain.
+  var SUSPICION_TIME = 0.7, LOST_TIME = 1.5;
 
   function dist(x1, z1, x2, z2) {
     var dx = x2 - x1, dz = z2 - z1;
@@ -183,9 +187,11 @@
       x: WAYPOINTS[0].x, z: WAYPOINTS[0].z, yaw: 0,
       state: 'patrol', wp: 1, tx: WAYPOINTS[1].x, tz: WAYPOINTS[1].z,
       lastX: 0, lastZ: 0, lostTimer: 0, searchTimer: 0,
-      stuckTimer: 0, stuckX: WAYPOINTS[0].x, stuckZ: WAYPOINTS[0].z
+      stuckTimer: 0, stuckX: WAYPOINTS[0].x, stuckZ: WAYPOINTS[0].z,
+      suspicionTimer: 0
     };
     this.finalChase = false;
+    this.suspicion = 0; // 0..1: seberapa curiga Kuntilanak (untuk view)
     this.crate = { x: CRATE.x, z: CRATE.z };
     this.pushing = false;
     this.input = { f: 0, s: 0, run: false };
@@ -345,6 +351,7 @@
         this.finalChase = true;
         this.enemy.state = 'hunt';
         this.enemy.lostTimer = 0;
+        this.enemy.suspicionTimer = 0;
         this.emit('final', {});
       }
     } else if (near.type === 'punden-locked') {
@@ -378,7 +385,7 @@
         e.x = x; e.z = z;
         e.yaw = Math.atan2(-(p.x - x), -(p.z - z));
         e.state = 'hunt';
-        e.lastX = p.x; e.lastZ = p.z; e.lostTimer = 0;
+        e.lastX = p.x; e.lastZ = p.z; e.lostTimer = 0; e.suspicionTimer = 0;
         return true;
       }
     }
@@ -441,38 +448,58 @@
       targetX = p.x; targetZ = p.z;
       speed = ENEMY_HUNT;
     } else if (e.state === 'patrol' || e.state === 'investigate' || e.state === 'search') {
-      var seen = false;
+      var seen = false, angTo = 0;
       if (!p.hidden && p.invuln <= 0) {
         var range = this.flashlight ? VISION_RANGE_LIT : VISION_RANGE;
         if (d < range) {
-          var angTo = Math.atan2(-(p.x - e.x), -(p.z - e.z));
+          angTo = Math.atan2(-(p.x - e.x), -(p.z - e.z));
           if (d < 1.8 || angDiff(angTo, e.yaw) < VISION_HALF_ANGLE) {
             if (hasLOS(e.x, e.z, p.x, p.z)) seen = true;
           }
         }
       }
+      // Jeda curiga: musuh harus melihat pemain terus-menerus selama
+      // SUSPICION_TIME sebelum mengejar. Selama jeda dia berhenti dan
+      // menatap pemain — Dimas punya waktu untuk sembunyi/lari.
+      var frozen = false;
       if (seen) {
-        if (e.state !== 'chase') this.emit('chase', {});
-        e.state = 'chase';
-        e.lastX = p.x; e.lastZ = p.z; e.lostTimer = 0;
-      } else if (e.state === 'patrol' && this.noise && d < HEAR_RANGE) {
-        e.state = 'investigate';
-        e.tx = p.x; e.tz = p.z;
-      }
-      if (e.state === 'patrol') {
-        targetX = e.tx; targetZ = e.tz;
-        if (dist(e.x, e.z, targetX, targetZ) < 0.3) {
-          e.wp = (e.wp + 1) % WAYPOINTS.length;
-          e.tx = WAYPOINTS[e.wp].x; e.tz = WAYPOINTS[e.wp].z;
+        if (e.suspicionTimer === 0) this.emit('suspicion', {});
+        e.suspicionTimer += dt;
+        e.yaw = angTo; // menatap pemain
+        if (e.suspicionTimer >= SUSPICION_TIME) {
+          if (e.state !== 'chase') this.emit('chase', {});
+          e.state = 'chase';
+          e.lastX = p.x; e.lastZ = p.z; e.lostTimer = 0;
+          e.suspicionTimer = 0;
+          targetX = p.x; targetZ = p.z; speed = ENEMY_CHASE;
+        } else {
+          frozen = true;
+          targetX = e.x; targetZ = e.z; // diam di tempat sambil curiga
         }
-      } else if (e.state === 'investigate') {
-        targetX = e.tx; targetZ = e.tz;
-        if (dist(e.x, e.z, targetX, targetZ) < 0.4) { e.state = 'patrol'; e.wp = 0; e.tx = WAYPOINTS[0].x; e.tz = WAYPOINTS[0].z; }
-      } else if (e.state === 'search') {
-        targetX = e.lastX; targetZ = e.lastZ;
-        e.searchTimer -= dt;
-        if (dist(e.x, e.z, targetX, targetZ) < 0.4 || e.searchTimer <= 0) {
-          e.state = 'patrol'; e.wp = 0; e.tx = WAYPOINTS[0].x; e.tz = WAYPOINTS[0].z;
+      } else {
+        if (e.suspicionTimer > 0) this.emit('suspicionLost', {});
+        e.suspicionTimer = 0;
+        if (e.state === 'patrol' && this.noise && d < HEAR_RANGE) {
+          e.state = 'investigate';
+          e.tx = p.x; e.tz = p.z;
+        }
+      }
+      if (!frozen) {
+        if (e.state === 'patrol') {
+          targetX = e.tx; targetZ = e.tz;
+          if (dist(e.x, e.z, targetX, targetZ) < 0.3) {
+            e.wp = (e.wp + 1) % WAYPOINTS.length;
+            e.tx = WAYPOINTS[e.wp].x; e.tz = WAYPOINTS[e.wp].z;
+          }
+        } else if (e.state === 'investigate') {
+          targetX = e.tx; targetZ = e.tz;
+          if (dist(e.x, e.z, targetX, targetZ) < 0.4) { e.state = 'patrol'; e.wp = 0; e.tx = WAYPOINTS[0].x; e.tz = WAYPOINTS[0].z; }
+        } else if (e.state === 'search') {
+          targetX = e.lastX; targetZ = e.lastZ;
+          e.searchTimer -= dt;
+          if (dist(e.x, e.z, targetX, targetZ) < 0.4 || e.searchTimer <= 0) {
+            e.state = 'patrol'; e.wp = 0; e.tx = WAYPOINTS[0].x; e.tz = WAYPOINTS[0].z;
+          }
         }
       }
     } else if (e.state === 'chase') {
@@ -483,7 +510,7 @@
       } else {
         e.lostTimer += dt;
       }
-      if (p.hidden || e.lostTimer > 2.5) {
+      if (p.hidden || e.lostTimer > LOST_TIME) {
         e.state = 'search';
         e.searchTimer = 4;
         this.emit('lost', {});
@@ -528,6 +555,10 @@
       e.stuckX = e.x; e.stuckZ = e.z;
     }
 
+    // Kecurigaan untuk view (peringatan + pose takut Dimas): 1 saat
+    // mengejar, pecahan 0..1 selama jeda curiga, 0 saat aman.
+    this.suspicion = (e.state === 'chase' || e.state === 'hunt') ? 1 :
+      clamp(e.suspicionTimer / SUSPICION_TIME, 0, 1);
     this.chaseWarn = (e.state === 'chase' || e.state === 'hunt');
   };
 
@@ -556,7 +587,7 @@
         e.state = 'patrol';
       }
       e.wp = 1; e.tx = WAYPOINTS[1].x; e.tz = WAYPOINTS[1].z;
-      e.lostTimer = 0;
+      e.lostTimer = 0; e.suspicionTimer = 0;
     }
   };
 
@@ -614,6 +645,11 @@
     CRATE: CRATE,
     WAYPOINTS: WAYPOINTS,
     START: START,
-    EXIT: EXIT
+    EXIT: EXIT,
+    RUN_SPEED: RUN_SPEED, WALK_SPEED: WALK_SPEED,
+    ENEMY_PATROL: ENEMY_PATROL, ENEMY_CHASE: ENEMY_CHASE, ENEMY_HUNT: ENEMY_HUNT,
+    VISION_RANGE: VISION_RANGE, VISION_RANGE_LIT: VISION_RANGE_LIT,
+    VISION_HALF_ANGLE: VISION_HALF_ANGLE, HEAR_RANGE: HEAR_RANGE,
+    CATCH_DIST: CATCH_DIST, SUSPICION_TIME: SUSPICION_TIME, LOST_TIME: LOST_TIME
   };
 });
