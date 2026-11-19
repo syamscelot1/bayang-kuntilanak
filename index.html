@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Bayang Kuntilanak</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; background: #000; overflow: hidden; font-family: Georgia, 'Times New Roman', serif; }
+  #wrap { position: relative; width: 100vw; height: 100vh; display: flex; align-items: center; justify-content: center; background: #000; }
+  canvas { display: block; background: #000; }
+  .overlay { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; color: #e8dcc0; background: rgba(0,0,0,0.85); z-index: 10; padding: 20px; }
+  .hidden { display: none !important; }
+  h1 { font-size: 52px; letter-spacing: 4px; color: #d8b25c; text-shadow: 0 0 24px rgba(216,178,92,0.55), 0 2px 0 #000; margin-bottom: 8px; }
+  h2 { font-size: 34px; color: #d8b25c; margin-bottom: 10px; }
+  .sub { font-style: italic; color: #b9a888; margin-bottom: 26px; max-width: 560px; line-height: 1.5; }
+  .btn { font-family: inherit; font-size: 22px; letter-spacing: 2px; color: #1a1206; background: #d8b25c; border: none; padding: 12px 42px; cursor: pointer; border-radius: 4px; margin: 8px; }
+  .btn:hover { background: #e8c877; }
+  .btn.ghost { background: transparent; color: #d8b25c; border: 1px solid #d8b25c; }
+  .btn.disabled { opacity: 0.35; cursor: not-allowed; }
+  .btn.disabled:hover { background: #d8b25c; }
+  /* Menu options: baris pilihan Mati/Pelan/Sedang/Keras, Tinggi/Rendah */
+  .optblock { text-align: left; max-width: 480px; margin: 6px 0 14px; }
+  .optlabel { color: #e8dcc0; font-size: 17px; letter-spacing: 1px; margin: 14px 0 6px; }
+  .optrow { display: flex; gap: 8px; flex-wrap: wrap; }
+  .optbtn { font-family: inherit; font-size: 15px; letter-spacing: 1px; color: #d8b25c; background: transparent; border: 1px solid #d8b25c; padding: 8px 16px; cursor: pointer; border-radius: 4px; }
+  .optbtn:hover { background: rgba(216,178,92,0.15); }
+  .optbtn.on { background: #d8b25c; color: #1a1206; }
+  .optnote { color: #8f8468; font-size: 13px; font-style: italic; margin-top: 12px; line-height: 1.5; }
+  .howto { text-align: left; max-width: 560px; line-height: 1.7; color: #cfc3a5; font-size: 16px; margin: 10px 0 18px; }
+  .howto b { color: #e8dcc0; }
+  /* HUD: hanya di tepi layar, tengah layar selalu bersih */
+  #hud { position: absolute; top: 0; left: 0; right: 0; display: flex; justify-content: space-between; align-items: flex-start; padding: 10px 16px; color: #e8dcc0; font-size: 18px; z-index: 5; pointer-events: none; text-shadow: 0 1px 3px #000; }
+  #hud .hearts { color: #e05a4e; letter-spacing: 3px; font-size: 22px; }
+  #hud .bat { width: 150px; }
+  #hud .batbar { width: 150px; height: 12px; border: 1px solid #d8b25c; background: #111; margin-top: 4px; }
+  #hud .batfill { height: 100%; background: #d8b25c; width: 100%; }
+  #hud .items { text-align: right; line-height: 1.5; }
+  #msg { position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%); color: #ffe9a8; font-size: 17px; text-shadow: 0 0 8px #000, 0 1px 2px #000; z-index: 5; pointer-events: none; text-align: center; white-space: nowrap; }
+  /* Vignette gelap di tepi layar (lensa ala Little Nightmares) */
+  #vignette { position: absolute; inset: 0; z-index: 4; pointer-events: none; background: radial-gradient(ellipse at center, transparent 52%, rgba(0,0,0,0.55) 88%, rgba(0,0,0,0.8) 100%); }
+  /* Fade hitam untuk transisi menang/kalah */
+  #fade { position: absolute; inset: 0; z-index: 30; pointer-events: none; background: #000; opacity: 0; transition: opacity 0.6s ease; }
+  /* Menu utama: tembus pandang supaya hutan hidup terlihat di belakang judul */
+  #menu { background: linear-gradient(180deg, rgba(2,4,8,0.45), rgba(2,4,8,0.88)); }
+  #menu h1 { animation: titleGlow 3s ease-in-out infinite; }
+  @keyframes titleGlow {
+    0%,100% { text-shadow: 0 0 24px rgba(216,178,92,0.55), 0 2px 0 #000; }
+    50% { text-shadow: 0 0 44px rgba(216,178,92,0.9), 0 2px 0 #000; }
+  }
+  #warn { position: absolute; top: 56px; left: 50%; transform: translateX(-50%); color: #ff5a4e; font-size: 22px; letter-spacing: 2px; text-shadow: 0 0 12px rgba(255,0,0,0.7); z-index: 5; pointer-events: none; white-space: nowrap; }
+  #timer { position: absolute; bottom: 10px; left: 16px; color: #b9a888; font-size: 15px; z-index: 5; text-shadow: 0 1px 2px #000; }
+  /* Kontrol sentuh landscape: joystick kiri bawah, tombol kanan bawah.
+     Kamera samping tetap, jadi tidak ada area menoleh. */
+  #touch { position: absolute; inset: 0; z-index: 6; pointer-events: none; display: none; }
+  #joy { position: absolute; left: 22px; bottom: 22px; width: 128px; height: 128px; border-radius: 50%; border: 2px solid rgba(216,178,92,0.6); background: rgba(255,255,255,0.05); pointer-events: auto; touch-action: none; }
+  #stick { position: absolute; left: 44px; top: 44px; width: 40px; height: 40px; border-radius: 50%; background: rgba(216,178,92,0.8); }
+  .tbtn { position: absolute; width: 64px; height: 64px; border-radius: 50%; border: 2px solid rgba(216,178,92,0.6); background: rgba(255,255,255,0.07); color: #e8dcc0; font-size: 12px; display: flex; align-items: center; justify-content: center; pointer-events: auto; touch-action: none; text-align: center; z-index: 7; }
+  #btnLight { right: 24px; bottom: 168px; }
+  #btnRun { right: 104px; bottom: 100px; }
+  #btnAct { right: 24px; bottom: 88px; }
+  #btnPause { top: 8px; right: 8px; width: 44px; height: 44px; bottom: auto; font-size: 18px; }
+  /* Overlay putar HP (portrait di HP) */
+  #rotate { position: absolute; inset: 0; z-index: 60; display: none; flex-direction: column; align-items: center; justify-content: center; text-align: center; background: #050403; color: #e8dcc0; padding: 24px; }
+  #rotate .phone { font-size: 64px; margin-bottom: 18px; animation: tilt 1.6s ease-in-out infinite; }
+  @keyframes tilt { 0%,100% { transform: rotate(0deg); } 50% { transform: rotate(90deg); } }
+  #rotate h2 { font-size: 26px; color: #d8b25c; margin-bottom: 10px; }
+  #rotate p { color: #b9a888; font-style: italic; max-width: 340px; line-height: 1.6; }
+  /* Jumpscare fullscreen: wajah digambar di canvas (orisinil), getar + kilat merah.
+     pointer-events none supaya tidak pernah menutupi tombol/menu. */
+  #jumpscare { position: absolute; inset: 0; z-index: 40; display: none; align-items: center; justify-content: center; background: #000; pointer-events: none; }
+  #jumpscare.on { display: flex; animation: scareShake 0.8s linear; }
+  #jumpscare canvas { height: 96%; max-width: 96vw; animation: scareZoom 0.8s ease-out; }
+  #redflash { position: absolute; inset: 0; background: #c00; opacity: 0; pointer-events: none; }
+  #jumpscare.on #redflash { animation: redFlash 0.8s steps(2) infinite; }
+  @keyframes scareShake {
+    0% { transform: translate(0,0); } 10% { transform: translate(-14px,8px); }
+    20% { transform: translate(12px,-10px); } 30% { transform: translate(-10px,-6px); }
+    40% { transform: translate(14px,10px); } 50% { transform: translate(-12px,4px); }
+    60% { transform: translate(10px,-8px); } 70% { transform: translate(-8px,10px); }
+    80% { transform: translate(12px,6px); } 90% { transform: translate(-10px,-4px); }
+    100% { transform: translate(0,0); }
+  }
+  @keyframes scareZoom { 0% { transform: scale(0.85); } 100% { transform: scale(1.18); } }
+  @keyframes redFlash { 0%,49% { opacity: 0; } 50%,100% { opacity: 0.45; } }
+  .small { color: #8f8468; font-size: 14px; margin-top: 14px; }
+  @media (max-width: 700px) {
+    h1 { font-size: 34px; }
+    .btn { font-size: 18px; padding: 10px 30px; }
+    #hud { font-size: 15px; }
+    #hud .bat, #hud .batbar { width: 110px; }
+  }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <canvas id="game" width="1280" height="720"></canvas>
+  <div id="vignette"></div>
+  <div id="fade"></div>
+
+  <div id="hud" class="hidden">
+    <div>
+      <div class="hearts" id="hearts">♥♥♥</div>
+      <div class="bat">Lentera
+        <div class="batbar"><div class="batfill" id="batfill"></div></div>
+      </div>
+    </div>
+    <div class="items" id="items">Sesajen: 0/3<br>Melati ☐ &nbsp;Kemenyan ☐ &nbsp;Lampion ☐</div>
+  </div>
+  <div id="warn" class="hidden">DIA MELIHATMU — LARI!</div>
+  <div id="msg" class="hidden"></div>
+  <div id="timer" class="hidden">00:00</div>
+
+  <div id="touch">
+    <div id="joy"><div id="stick"></div></div>
+    <div class="tbtn" id="btnLight">LENTERA</div>
+    <div class="tbtn" id="btnRun">LARI</div>
+    <div class="tbtn" id="btnAct">AMBIL</div>
+    <div class="tbtn" id="btnPause">II</div>
+  </div>
+
+  <div id="rotate">
+    <div class="phone">📱</div>
+    <h2>Putar HP ke landscape untuk bermain</h2>
+    <p>Game ini dimainkan dengan layar miring. Putar HP kamu, gamenya lanjut sendiri.</p>
+  </div>
+
+  <div id="jumpscare">
+    <div id="redflash"></div>
+    <canvas id="scareFace" width="480" height="640"></canvas>
+  </div>
+
+  <div id="menu" class="overlay">
+    <h1>BAYANG KUNTILANAK</h1>
+    <p class="sub">Tengah malam, Dimas tersesat di hutan bambu. Untuk menenangkan Kuntilanak yang bersemayam di pohon beringin, ia harus mengumpulkan tiga sesajen — bunga melati, kemenyan, dan lampion — lalu meletakkannya di punden tua. Tapi hati-hati: dia mengawasi dari balik bambu.</p>
+    <button class="btn" id="btnStart">NEW GAME</button>
+    <button class="btn" id="btnLoad">LOAD GAME</button>
+    <button class="btn ghost" id="btnOptions">OPTIONS</button>
+    <button class="btn ghost" id="btnHow">CARA MAIN</button>
+    <p class="small" id="saveInfo">Belum ada save.</p>
+    <div id="howto" class="howto hidden">
+      <b>Gerak:</b> A/D atau panah kiri-kanan untuk jalan, W/S atau panah atas-bawah untuk maju/mundur ke dalam hutan. Di HP: joystick kiri bawah (mode landscape).<br>
+      <b>Lari:</b> tahan Shift (tombol LARI di HP) — lebih cepat, tapi berisik dan menarik Kuntilanak.<br>
+      <b>Lentera:</b> tombol F (tombol LENTERA di HP). Baterai habis kalau menyala terus; ambil baterai cadangan di hutan.<br>
+      <b>Ambil / pakai:</b> tombol E (tombol AMBIL di HP) di dekat sesajen, baterai, tempat sembunyi, atau punden tua.<br>
+      <b>Peti bambu:</b> lampion ada di rak tinggi dekat gubuk — dorong peti bambu dengan berjalan ke arahnya sampai ke dekat rak, baru lampion bisa diraih.<br>
+      <b>Punden kecil:</b> dekati lilinnya untuk menyalakannya — jadi checkpoint kalau kamu tertangkap.<br>
+      <b>Tempat sembunyi:</b> lubang bambu besar di dekat punden tua, kolong gubuk tua, dan balik bambu tumbang di dekat gerbang desa — dekati sampai muncul "Sembunyi [E]", lalu Dimas merunduk masuk ke dalamnya. Selama bersembunyi Kuntilanak tidak bisa melihatmu dan kejar-kejaran putus. Kenali dari lubang gelap bertepi cahaya redup yang berdenyut.<br>
+      <b>Kuntilanak:</b> sosok putih yang melayang di antara bambu. Kalau dia melihatmu, dia mengejar sambil cekikikan. Tertangkap = 1 nyawa hilang, kembali ke lilin terakhir.<br>
+      <b>Menang:</b> letakkan 3 sesajen di punden tua, lalu lari menyeberangi hutan menuju gerbang desa sebelum dia menangkapmu.<br>
+      <b>Jeda:</b> Esc / P. <b>Di HP mainlah dalam mode landscape.</b>
+    </div>
+    <p class="small">Game horor orisinil — semua gambar dan suara dibuat di dalam game, tanpa file luar. Mainkan dalam mode landscape.</p>
+  </div>
+
+  <div id="confirmMenu" class="overlay hidden">
+    <h2>TIMPA SAVE LAMA?</h2>
+    <p class="sub">Sudah ada save tersimpan. Memulai game baru akan menghapus save lama itu. Lanjut?</p>
+    <button class="btn" id="btnConfirmYes">YA, MULAI BARU</button>
+    <button class="btn ghost" id="btnConfirmNo">BATAL</button>
+  </div>
+
+  <div id="optionsMenu" class="overlay hidden">
+    <h2>PENGATURAN</h2>
+    <div class="optblock">
+      <div class="optlabel">Volume Musik</div>
+      <div class="optrow" id="optMusic">
+        <button class="optbtn" id="optMusic0">Mati</button>
+        <button class="optbtn" id="optMusic1">Pelan</button>
+        <button class="optbtn" id="optMusic2">Sedang</button>
+        <button class="optbtn" id="optMusic3">Keras</button>
+      </div>
+      <div class="optlabel">Volume Efek Suara</div>
+      <div class="optrow" id="optSfx">
+        <button class="optbtn" id="optSfx0">Mati</button>
+        <button class="optbtn" id="optSfx1">Pelan</button>
+        <button class="optbtn" id="optSfx2">Sedang</button>
+        <button class="optbtn" id="optSfx3">Keras</button>
+      </div>
+      <div class="optlabel">Kualitas Grafik</div>
+      <div class="optrow" id="optQuality">
+        <button class="optbtn" id="optQualityHigh">Tinggi</button>
+        <button class="optbtn" id="optQualityLow">Rendah</button>
+      </div>
+      <p class="optnote">Rendah: mematikan kunang-kunang, daun jatuh, debu, percikan sesajen, dan kabut bergerak — untuk HP kentang.</p>
+    </div>
+    <button class="btn" id="btnOptionsBack">KEMBALI</button>
+  </div>
+
+  <div id="pauseMenu" class="overlay hidden">
+    <h2>JEDA</h2>
+    <p class="sub">Hutan itu menunggu dalam gelap.</p>
+    <button class="btn" id="btnResume">LANJUTKAN</button>
+    <button class="btn ghost" id="btnOptionsPause">OPTIONS</button>
+    <button class="btn ghost" id="btnRestart1">MULAI DARI AWAL</button>
+    <button class="btn ghost" id="btnMenuPause">MENU UTAMA</button>
+  </div>
+
+  <div id="overMenu" class="overlay hidden">
+    <h2>HUTAN TAK MELEPASKANMU</h2>
+    <p class="sub" id="overText">Kuntilanak menangkapmu untuk ketiga kalinya. Kabut menutup jalan pulang — dan Dimas kini bagian dari hutan.</p>
+    <button class="btn" id="btnRestart2">COBA LAGI</button>
+    <button class="btn ghost" id="btnMenu2">MENU UTAMA</button>
+  </div>
+
+  <div id="winMenu" class="overlay hidden">
+    <h2>KAMU LOLOS!</h2>
+    <p class="sub" id="winText">Dimas keluar lewat gerbang desa membawa cahaya fajar. Di belakangnya, hutan bambu kembali sunyi — Kuntilanak tenang di punden tua.</p>
+    <button class="btn" id="btnRestart3">MAIN LAGI</button>
+    <button class="btn ghost" id="btnMenu3">MENU UTAMA</button>
+  </div>
+</div>
+<script src="three.min.js"></script>
+<script src="logic.js"></script>
+<script src="game.js"></script>
+</body>
+</html>
